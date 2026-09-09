@@ -1,8 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-    <param name="use_sim_time" value="true"/>
-    <include file="$(find com_sim)/launch/com_sim.launch"/>
-    <include file="$(find urdf_gazebo)/launch/env.launch"/>
-    <include file="$(find nav_demo)/launch/nav06_test.launch" />
-    
-</launch>    

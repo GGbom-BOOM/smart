@@ -1,7 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-    <include file="$(find com_sim)/launch/com_sim.launch"/>
-    <include file="$(find urdf_gazebo)/launch/env.launch"/>
-    
-
-</launch> 
