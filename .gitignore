@@ -1,0 +1,20 @@
+# catkin编译产物
+build/
+devel/
+install/
+
+# catkin工作空间标记文件
+.catkin_workspace
+.catkin_tools/
+
+# 编辑器临时文件
+*.swp
+*.swo
+.DS_Store
+.vscode/.cache
+*.log
+
+# 大型数据集、模型文件（按需）
+*.pth
+*.pt
+*.bag

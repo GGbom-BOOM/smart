@@ -1,0 +1,122 @@
+<?xml version="1.0" ?>
+<sdf version="1.7">
+  <model name="competition_ground">
+    <static>true</static>
+
+    <!-- ==============================================
+         地图 地面 link
+         ============================================== -->
+    <link name="link">
+      <pose>0 0 0 0 0 1.5708</pose>
+      <collision name="collision">
+        <geometry>
+          <box><size>6.0 6.0 0.1</size></box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>6.0 6.0 0.1</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.8 0.8 0.8 1</ambient>
+          <!-- 如需贴图，替换为以下纹理配置 -->
+          <script>
+            <uri>model://competition_ground/materials/scripts/ground.material</uri>
+            <uri>model://competition_ground/materials/textures/map1.png</uri>
+            <name>CompetitionField/Ground</name>
+          </script>   
+        </material>
+      </visual>
+    </link>
+
+    <!-- ==============================================
+         北墙 (y轴正方向)
+         ============================================== -->
+    <link name="north_wall">
+      <pose>0 2.95 0.55 0 0 0</pose>
+      <collision name="north_wall_collision">
+        <geometry>
+          <box><size>5.8 0.1 1.0</size></box>
+        </geometry>
+      </collision>
+      <visual name="north_wall_visual">
+        <geometry>
+          <box><size>5.8 0.1 1.0</size></box>
+        </geometry>
+        <material>
+          <ambient>0.7 0.7 0.7 1</ambient>
+          <diffuse>0.8 0.8 0.8 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
+      </visual>
+    </link>
+
+    <!-- ==============================================
+         南墙 (y轴负方向)
+         ============================================== -->
+    <link name="south_wall">
+      <pose>0 -2.95 0.55 0 0 0</pose>
+      <collision name="south_wall_collision">
+        <geometry>
+          <box><size>5.8 0.1 1.0</size></box>
+        </geometry>
+      </collision>
+      <visual name="south_wall_visual">
+        <geometry>
+          <box><size>5.8 0.1 1.0</size></box>
+        </geometry>
+        <material>
+          <ambient>0.7 0.7 0.7 1</ambient>
+          <diffuse>0.8 0.8 0.8 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
+      </visual>
+    </link>
+
+    <!-- ==============================================
+         东墙 (x轴正方向)
+         ============================================== -->
+    <link name="east_wall">
+      <pose>2.95 0 0.55 0 0 1.5708</pose>
+      <collision name="east_wall_collision">
+        <geometry>
+          <box><size>6.0 0.1 1.0</size></box>
+        </geometry>
+      </collision>
+      <visual name="east_wall_visual">
+        <geometry>
+          <box><size>6.0 0.1 1.0</size></box>
+        </geometry>
+        <material>
+          <ambient>0.7 0.7 0.7 1</ambient>
+          <diffuse>0.8 0.8 0.8 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
+      </visual>
+    </link>
+
+    <!-- ==============================================
+         西墙 (x轴负方向)
+         ============================================== -->
+    <link name="west_wall">
+      <pose>-2.95 0 0.55 0 0 1.5708</pose>
+      <collision name="west_wall_collision">
+        <geometry>
+          <box><size>6.0 0.1 1.0</size></box>
+        </geometry>
+      </collision>
+      <visual name="west_wall_visual">
+        <geometry>
+          <box><size>6.0 0.1 1.0</size></box>
+        </geometry>
+        <material>
+          <ambient>0.7 0.7 0.7 1</ambient>
+          <diffuse>0.8 0.8 0.8 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

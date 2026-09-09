@@ -1,0 +1,18 @@
+<launch>
+    <node pkg="joint_state_publisher" type="joint_state_publisher" name="joint_state_publisher" output="log" />
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="log" />
+    
+    <include file="$(find nav_demo)/launch/nav03_map_server.launch" />
+    <!-- 启动AMCL节点 -->
+    <include file="$(find nav_demo)/launch/nav04_amcl.launch" />
+    <include file="$(find nav_demo)/launch/nav05_path.launch" />
+    <!-- 运行rviz -->
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find nav_demo)/config/nav_test.rviz" output="log" />
+    
+    <param name="waypoints_file" value="$(find nav_demo)/param/waypoint.yaml" />
+    <node pkg="nav_demo" type="auto_nav.py" name="auto_nav" output="screen" />
+    <node pkg="nav_demo" type="vision_node.py" name="vision_recognition" output="screen" />
+
+    <node pkg="jie_ware" type="lidar_filter_node" name="lidar_filter_node"/>
+    
+</launch>

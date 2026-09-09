@@ -1,0 +1,12 @@
+{
+    "ros.distro": "noetic",
+    "python.autoComplete.extraPaths": [
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ],
+    "editor.fontSize": 20,
+    "cmake.sourceDirectory": "/home/hh/comrobot_ws/src/urdf01_rviz",
+    "python-envs.defaultEnvManager": "ms-python.python:system"
+}
