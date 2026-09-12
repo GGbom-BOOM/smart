@@ -67,12 +67,17 @@ class PoseTracker:
 # 任务路点表：坐标 + 任务类型(没有 task 字段的 waypoint 会自动到这里查)
 #   红绿灯 -> 等绿灯才通行; count -> 人群/立牌计数; plate -> 车牌识别
 # ---------------------------------------------------------------------------
+TASK_YAW_TOLERANCE = 0.20
 TASK_POINTS = [
-    {"x": 2.0,  "y": 2.5,   "task": "traffic_light", "name": "红绿灯1"},
-    {"x": -1.5, "y": 0.65,   "task": "count",         "name": "识别(立牌)"},
-    {"x": -0.15, "y": 0.65,   "task": "traffic_light", "name": "红绿灯2"},
-    {"x": 1.7,  "y": -2.3,  "task": "plate",         "name": "车牌1"},
-    {"x": 1.4,  "y": -1.15, "task": "plate",         "name": "车牌2"},
+    {"x": 2.0,   "y": 2.5,   "yaw": 3.1416,  "task": "traffic_light", "name": "红绿灯1"},
+    {"x": -1.46, "y": 2.5,   "yaw": 4.7124,  "task": "count",         "name": "识别1"},
+    {"x": -2.5,  "y": 1.55,   "yaw": 0.0,     "task": "count",         "name": "识别2"},
+    {"x": -1.35,  "y": 0.65,  "yaw": 1.5708,  "task": "count",         "name": "识别3"},
+    {"x": -1.35,  "y": 0.65,  "yaw": -1.5708, "task": "count",         "name": "识别4"},
+    {"x": -0.13, "y": -0.25, "yaw": 3.1416,  "task": "count",         "name": "识别5"},
+    {"x": -0.13, "y": -0.25, "yaw": 4.7124,  "task": "traffic_light", "name": "红绿灯2"},
+    {"x": 1.7,   "y": -2.3,  "yaw": 0.0,     "task": "plate",         "name": "车牌1"},
+    {"x": 1.4,   "y": -1.15, "yaw": 0.0,     "task": "plate",         "name": "车牌2"},
 ]
 
 
@@ -105,6 +110,10 @@ class AutoNavigator:
 
         # 视觉停留时间(waypoints.yaml 的 stay_time_at_bc 会覆盖)
         self.stay_time = rospy.get_param("~stay_time_at_bc", 3.0)
+
+        # 分街区累计人数
+        self.street1_counts = {"识别1": 0, "识别2": 0, "识别3": 0}
+        self.street2_counts = {"识别4": 0, "识别5": 0}
 
         self.client = actionlib.SimpleActionClient("move_base", MoveBaseAction)
         self.vel_pub = rospy.Publisher(self.cmd_vel_topic, Twist, queue_size=10)
@@ -242,14 +251,22 @@ class AutoNavigator:
         return True
 
     # ---------------- 视觉任务 ----------------
-    def current_task(self, wp):
-        """取路点任务: 优先用 yaml 里可选的 task 字段, 否则按坐标查表。"""
+    def current_task_point(self, wp):
+        """返回匹配的任务点; YAML 有 task 时优先使用。"""
         if wp.get("task"):
-            return wp["task"]
+            return {"task": wp["task"], "name": wp.get("name", "")}
+        wp_yaw = wp.get("yaw")
         for t in TASK_POINTS:
-            if is_near(wp["x"], wp["y"], t["x"], t["y"]):
-                return t["task"]
+            if not is_near(wp["x"], wp["y"], t["x"], t["y"]):
+                continue
+            if (wp_yaw is None or
+                    abs(normalize_angle(float(wp_yaw) - t["yaw"])) <= TASK_YAW_TOLERANCE):
+                return t
         return None
+
+    def current_task(self, wp):
+        point = self.current_task_point(wp)
+        return point["task"] if point else None
 
     def do_vision_task(self, wp, task):
         """识别/车牌路点: 开启识别 -> 停留 -> 关闭 -> 打印结果。"""
@@ -267,7 +284,33 @@ class AutoNavigator:
             except rospy.ServiceException:
                 pass
         if task == "count":
-            rospy.loginfo(">>> 人数 = %s (result: %s)", self.last_count, self.last_result)
+            count = int(self.last_count) if self.last_count is not None else 0
+            task_point = self.current_task_point(wp) or {}
+            name = task_point.get("name", "")
+            rospy.loginfo(">>> %s人数 = %d (result: %s)",
+                          name or "识别", count, self.last_result)
+
+            if name in self.street1_counts:
+                self.street1_counts[name] = count
+                if name == "识别3":
+                    total = sum(self.street1_counts.values())
+                    rospy.loginfo(
+                        "在1街区共检测到 %d 个人"
+                        "（识别1人数 %d + 识别2人数 %d + 识别3人数 %d）",
+                        total,
+                        self.street1_counts["识别1"],
+                        self.street1_counts["识别2"],
+                        self.street1_counts["识别3"])
+            elif name in self.street2_counts:
+                self.street2_counts[name] = count
+                if name == "识别5":
+                    total = sum(self.street2_counts.values())
+                    rospy.loginfo(
+                        "在2街区共检测到 %d 个人"
+                        "（识别4人数 %d + 识别5人数 %d）",
+                        total,
+                        self.street2_counts["识别4"],
+                        self.street2_counts["识别5"])
         else:  # plate
             rospy.loginfo(">>> 车牌 = %s (result: %s)", self.last_plate, self.last_result)
 

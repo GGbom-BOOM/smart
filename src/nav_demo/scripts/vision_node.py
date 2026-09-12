@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import math
 import os
 import time
 import rospy
@@ -31,16 +32,21 @@ NEED_GREEN    = 5                        # 连续几帧绿灯才确认"可以通
 GREEN_TIMEOUT = 30.0                     # 等绿灯最多多少秒
 MAX_FRAMES    = 20                       # 一次识别最多处理帧数(防漏停死循环)
 STABLE_FRAMES = 3                        # 连续几帧结果一致就自动结束
-TASK_RADIUS   = 0.25                     # 距路点多近算"到达"
+TASK_RADIUS     = 0.25                   # 距路点多近算"到达"
+TASK_YAW_RADIUS = 0.35                   # 朝向匹配容差(rad)
 
-# 任务路点表: 按你给的坐标, 只有带识别任务的点才列出
+# 任务路点表: 只有需要识别/等待绿灯的点才列出
+# 同坐标不同朝向的点必须用 yaw 区分, 例如识别3/4和识别5
 TASK_WAYPOINTS = [
-    {"name": "traffic_light_1", "x": 2.0,  "y": 2.5,   "task": "traffic_light"},
-    {"name": "count_1",         "x": -1.5, "y": 0.65,   "task": "count"},   # 识别1
-    {"name": "count_2",         "x": -1.5, "y": 0.65,   "task": "count"},   # 识别2(同点朝反方向, 任务相同)
-    {"name": "traffic_light_2", "x": -0.15, "y": 0.65,   "task": "traffic_light"},
-    {"name": "plate_1",         "x": 1.7,  "y": -2.3,  "task": "plate"},   # 车牌1
-    {"name": "plate_2",         "x": 1.4,  "y": -1.15, "task": "plate"},   # 车牌2
+    {"name": "traffic_light_1", "x": 2.0,   "y": 2.5,   "yaw": 3.1416,  "task": "traffic_light"},
+    {"name": "count_1",         "x": -1.46, "y": 2.5,   "yaw": 4.7124,  "task": "count"},   # 识别1
+    {"name": "count_2",         "x": -2.5,  "y": 1.55,   "yaw": 0.0,     "task": "count"},   # 识别2
+    {"name": "count_3",         "x": -1.35, "y": 0.65,  "yaw": 1.5708,  "task": "count"},   # 识别3
+    {"name": "count_4",         "x": -1.35, "y": 0.65,  "yaw": -1.5708, "task": "count"},   # 识别4
+    {"name": "count_5",         "x": -0.13, "y": -0.25, "yaw": 3.1416,  "task": "count"},   # 识别5
+    {"name": "traffic_light_2", "x": -0.13, "y": -0.25, "yaw": 4.7124,  "task": "traffic_light"},
+    {"name": "plate_1",         "x": 1.7,   "y": -2.3,  "yaw": 0.0,     "task": "plate"},   # 车牌1
+    {"name": "plate_2",         "x": 1.4,   "y": -1.15, "yaw": 0.0,     "task": "plate"},   # 车牌2
 ]
 # ========================== 可调参数 ==========================
 
@@ -127,18 +133,28 @@ class VisionRecognition:
         rospy.loginfo("视觉识别节点已启动, 等待指令...")
 
     # ---------------- 位姿 ----------------
+    @staticmethod
+    def _yaw_from_quaternion(q):
+        return math.atan2(
+            2.0 * (q.w * q.z + q.x * q.y),
+            1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+
     def on_pose(self, msg):
         # amcl 给的是地图坐标, 与 TASK_WAYPOINTS 一致, 优先使用
         self.amcl_ok = True
-        self.pose = (msg.pose.pose.position.x, msg.pose.pose.position.y)
+        pose = msg.pose.pose
+        self.pose = (pose.position.x, pose.position.y,
+                     self._yaw_from_quaternion(pose.orientation))
 
     def on_odom(self, msg):
         # 只有从来没收到过 amcl 位姿时才用 odom 兜底(odom 是里程计坐标, 通常不等于地图坐标)
         if not self.amcl_ok:
-            self.pose = (msg.pose.pose.position.x, msg.pose.pose.position.y)
+            pose = msg.pose.pose
+            self.pose = (pose.position.x, pose.position.y,
+                         self._yaw_from_quaternion(pose.orientation))
 
     def current_task(self):
-        """按机器人坐标判断当前路点任务: count / plate / traffic_light / none"""
+        """按机器人坐标和朝向判断当前路点任务: count / plate / traffic_light / none"""
         if self.force_task:
             return self.force_task
         if self.pose is None:
@@ -147,7 +163,11 @@ class VisionRecognition:
         best = None
         for wp in TASK_WAYPOINTS:
             d = ((wp["x"] - self.pose[0]) ** 2 + (wp["y"] - self.pose[1]) ** 2) ** 0.5
-            if d <= TASK_RADIUS and (best is None or d < best[0]):
+            dyaw = abs(math.atan2(
+                math.sin(self.pose[2] - wp["yaw"]),
+                math.cos(self.pose[2] - wp["yaw"])))
+            if (d <= TASK_RADIUS and dyaw <= TASK_YAW_RADIUS
+                    and (best is None or d < best[0])):
                 best = (d, wp["task"])
         return best[1] if best else "none"
 

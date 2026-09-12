@@ -2,7 +2,7 @@
 <launch>
     <!-- 设置Gazebo模型路径 -->
     <env name="GAZEBO_MODEL_PATH" value="$(find com_sim)/models:$(optenv GAZEBO_MODEL_PATH)" />
-
+    <env name="GAZEBO_PLUGIN_PATH" value="$(find traffic_light_plugin)/../../devel/lib:$(optenv GAZEBO_PLUGIN_PATH)" />
     <!-- 启动动态仿真器 -->
     <include file ="$(find gazebo_ros)/launch/empty_world.launch">
         <arg name="world_name" value="$(find com_sim)/world/com.world"/>
