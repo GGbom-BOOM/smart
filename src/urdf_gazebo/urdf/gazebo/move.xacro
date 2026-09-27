@@ -33,12 +33,19 @@
             <legacyMode>false</legacyMode>
             <leftJoint>left_wheel2base_link</leftJoint> <!-- 左轮 -->
             <rightJoint>right_wheel2base_link</rightJoint> <!-- 右轮 -->
-            <wheelSeparation>${base_link_width * 2}</wheelSeparation> <!-- 车轮间距 -->
+            <!-- 轮心间距: 驱动轮装在 y=±(base_link_width/2 + wheel_length/2),
+                 所以真实轮距是 base_link_width + wheel_length (=0.23)。
+                 原先写 base_link_width*2 (=0.40) 偏大, 会让 odom 报的转角比真实转动少 1.74 倍,
+                 AMCL 转角时和激光打架。 -->
+            <wheelSeparation>${base_link_width + wheel_length}</wheelSeparation> <!-- 车轮间距 -->
             <wheelDiameter>${wheel_radius * 2}</wheelDiameter> <!-- 车轮直径 -->
             <broadcastTF>false</broadcastTF>
             <odometrySource>1</odometrySource>
             <wheelTorque>30</wheelTorque>
-            <wheelAcceleration>1.8</wheelAcceleration>
+            <!-- 6.2 rad/s²: 线加速度 = 0.065*6.2 = 0.40, 对齐 acc_lim_x;
+                 角加速度 = 0.13*6.2/0.23 = 3.5, 覆盖 acc_lim_theta=1.2。
+                 原来是 1.8, 只能给 0.117 m/s² / 0.585 rad/s², 起步太肉。 -->
+            <wheelAcceleration>6.2</wheelAcceleration>
             <commandTopic>cmd_vel</commandTopic> <!-- 运动控制话题 -->
             <odometryFrame>odom</odometryFrame> 
             <odometryTopic>odom</odometryTopic> <!-- 里程计话题 -->

@@ -69,15 +69,15 @@ class PoseTracker:
 # ---------------------------------------------------------------------------
 TASK_YAW_TOLERANCE = 0.20
 TASK_POINTS = [
-    {"x": 2.0,   "y": 2.5,   "yaw": 3.1416,  "task": "traffic_light", "name": "红绿灯1"},
-    {"x": -1.46, "y": 2.5,   "yaw": 4.7124,  "task": "count",         "name": "识别1"},
-    {"x": -2.5,  "y": 1.55,   "yaw": 0.0,     "task": "count",         "name": "识别2"},
-    {"x": -1.35,  "y": 0.65,  "yaw": 1.5708,  "task": "count",         "name": "识别3"},
-    {"x": -1.35,  "y": 0.65,  "yaw": -1.5708, "task": "count",         "name": "识别4"},
-    {"x": -0.13, "y": -0.25, "yaw": 3.1416,  "task": "count",         "name": "识别5"},
-    {"x": -0.13, "y": -0.25, "yaw": 4.7124,  "task": "traffic_light", "name": "红绿灯2"},
-    {"x": 1.7,   "y": -2.3,  "yaw": 0.0,     "task": "plate",         "name": "车牌1"},
-    {"x": 1.4,   "y": -1.15, "yaw": 0.0,     "task": "plate",         "name": "车牌2"},
+    {"x": 0.8,   "y": 1.7,   "yaw": 3.1416,  "task": "traffic_light", "name": "红绿灯1"},
+    {"x": -1.1, "y": 1.7,  "yaw": 4.7124,  "task": "count",         "name": "识别1"},
+    {"x": -1.75,  "y": 1.07,  "yaw": 0.0,     "task": "count",         "name": "识别2"},
+    {"x": -1.0,  "y": 0.45,  "yaw": 1.5708,  "task": "count",         "name": "识别3"},
+    {"x": -1.0,  "y": 0.45,  "yaw": -1.5708, "task": "count",         "name": "识别4"},
+    {"x": -0.06, "y": -0.1, "yaw": 3.1416,  "task": "count",         "name": "识别5"},
+    {"x": -0.06, "y": -0.03, "yaw": 4.7124,  "task": "traffic_light", "name": "红绿灯2"},
+    {"x": 1.1,   "y": -1.75, "yaw": 0.0,     "task": "plate",         "name": "车牌1"},
+    {"x": 1.1,   "y": -0.68, "yaw": 0.0,     "task": "plate",         "name": "车牌2"},
 ]
 
 
@@ -99,21 +99,26 @@ class AutoNavigator:
         self.vision_stop_srv = rospy.get_param("~vision_stop_service", "/vision_stop")
         self.vision_green_srv = rospy.get_param("~vision_wait_green_service", "/vision_wait_green")
 
-        # 旋转控制参数
-        self.rot_kp = rospy.get_param("~rot_kp", 2.0)
-        self.rot_max = rospy.get_param("~rot_max_speed", 0.6)
-        self.rot_min = rospy.get_param("~rot_min_speed", 0.2)
-        self.rot_deadband = rospy.get_param("~rot_deadband", 0.03)
+        # 旋转控制参数(转向要灵敏: 比例增益拉高, 上限对齐局部规划器的 max_vel_theta=1.4)
+        self.rot_kp = rospy.get_param("~rot_kp", 3.0)
+        self.rot_max = rospy.get_param("~rot_max_speed", 1.4)
+        self.rot_min = rospy.get_param("~rot_min_speed", 0.25)
+        self.rot_deadband = rospy.get_param("~rot_deadband", 0.02)
         self.rot_timeout = rospy.get_param("~rot_timeout", 15.0)
         self.move_timeout = rospy.get_param("~move_timeout", 120.0)
         self.settle_time = rospy.get_param("~settle_time", 0.5)
+        # 离目标近于此距离时跳过"转向行进方向"(方位角已无意义)。
+        # 默认对齐 move_base 的 xy_goal_tolerance, 到了这个距离本来就算到位了。
+        self.path_align_min_dist = rospy.get_param("~path_align_min_dist", 0.15)
 
         # 视觉停留时间(waypoints.yaml 的 stay_time_at_bc 会覆盖)
         self.stay_time = rospy.get_param("~stay_time_at_bc", 3.0)
 
-        # 分街区累计人数
-        self.street1_counts = {"识别1": 0, "识别2": 0, "识别3": 0}
-        self.street2_counts = {"识别4": 0, "识别5": 0}
+        # 分街区累计: 每个识别点记 (总人数, 社区人员数, 非社区人员数)
+        self.street_tally = [
+            {"name": "1街区", "points": ["识别1", "识别2", "识别3"], "data": {}},
+            {"name": "2街区", "points": ["识别4", "识别5"], "data": {}},
+        ]
 
         self.client = actionlib.SimpleActionClient("move_base", MoveBaseAction)
         self.vel_pub = rospy.Publisher(self.cmd_vel_topic, Twist, queue_size=10)
@@ -145,9 +150,15 @@ class AutoNavigator:
         self.last_result = None
         self.last_count = None
         self.last_plate = None
+        self.last_member = None      # 社区人员数
+        self.last_stranger = None    # 非社区人员数
+        self.last_names = None       # 识别到的社区人员姓名
         rospy.Subscriber("/vision/result", String, self.on_result)
         rospy.Subscriber("/vision/crowd_count", Int32, self.on_count)
         rospy.Subscriber("/vision/plate_text", String, self.on_plate)
+        rospy.Subscriber("/vision/member_count", Int32, self.on_member)
+        rospy.Subscriber("/vision/stranger_count", Int32, self.on_stranger)
+        rospy.Subscriber("/vision/member_names", String, self.on_names)
 
     # ---------------- 视觉结果回调 ----------------
     def on_result(self, msg):
@@ -159,6 +170,15 @@ class AutoNavigator:
     def on_plate(self, msg):
         self.last_plate = msg.data
 
+    def on_member(self, msg):
+        self.last_member = msg.data
+
+    def on_stranger(self, msg):
+        self.last_stranger = msg.data
+
+    def on_names(self, msg):
+        self.last_names = msg.data
+
     # ---------------- 基础动作 ----------------
     def stop_robot(self):
         twist = Twist()
@@ -166,13 +186,21 @@ class AutoNavigator:
             self.vel_pub.publish(twist)
             rospy.sleep(0.05)
 
-    def cancel_navigation(self):
-        """取消 move_base 当前目标并清零 cmd_vel，避免与自研旋转冲突。"""
+    def cancel_navigation(self, timeout=1.0):
+        """取消 move_base 当前目标, 等它真的松手后再清零 cmd_vel。
+
+        """
         try:
             self.client.cancel_all_goals()
         except Exception:
             pass
-        rospy.sleep(0.2)
+        t0 = time.time()
+        while not rospy.is_shutdown() and time.time() - t0 < timeout:
+            # PENDING/ACTIVE = move_base 还在控车, 变 PREEMPTED 才算放手
+            if self.client.get_state() not in (GoalStatus.PENDING,
+                                               GoalStatus.ACTIVE):
+                break
+            rospy.sleep(0.02)
         self.stop_robot()
 
     def rotate_to_yaw(self, target_yaw, timeout=None, max_speed=None):
@@ -207,6 +235,27 @@ class AutoNavigator:
 
         self.stop_robot()
         rospy.sleep(0.1)
+
+    def align_to_path(self, x, y):
+        """出发前先原地转到朝向下一点的方位, 让车一启动就是前向行驶。
+
+        目标已经很近时(例如只换朝向、位置不变的两个识别点)方位角没有意义, 直接跳过,
+        后面的 rotate_to_yaw(yaw) 会负责把朝向摆正。
+        """
+        pose = self.pose.get_pose()
+        if pose is None:
+            rospy.logwarn("拿不到位姿, 跳过转向行进方向")
+            return
+        dx = x - pose[0]
+        dy = y - pose[1]
+        dist = math.hypot(dx, dy)
+        if dist <= self.path_align_min_dist:
+            return
+        bearing = math.atan2(dy, dx)
+        err = abs(normalize_angle(bearing - pose[2]))
+        rospy.loginfo("先转向行进方向 %.1f°(当前偏差 %.1f°, 距离 %.2f m)",
+                      math.degrees(bearing), math.degrees(err), dist)
+        self.rotate_to_yaw(bearing)
 
     def move_to(self, x, y):
         """只把机器人送到 (x, y)：goal 朝向=当前朝向, 不让 move_base 凑 yaw。"""
@@ -243,7 +292,8 @@ class AutoNavigator:
         return True
 
     def navigate_to(self, x, y, yaw):
-        """1) 送到位置  2) 对齐该点要求的 yaw。"""
+        """1) 转到行进方向  2) 送到位置  3) 对齐该点要求的 yaw。"""
+        self.align_to_path(x, y)
         if not self.move_to(x, y):
             return False
         rospy.sleep(self.settle_time)
@@ -268,9 +318,51 @@ class AutoNavigator:
         point = self.current_task_point(wp)
         return point["task"] if point else None
 
+    def report_count(self, wp):
+        """打印识别点结果, 并累计到所在街区。"""
+        total = int(self.last_count) if self.last_count is not None else 0
+        member = int(self.last_member) if self.last_member is not None else 0
+        stranger = int(self.last_stranger) if self.last_stranger is not None else 0
+        names = (self.last_names or "").strip()
+
+        task_point = self.current_task_point(wp) or {}
+        name = task_point.get("name", "") or "识别"
+
+        if member + stranger > 0:
+            rospy.loginfo(">>> %s: 识别到社区 %d 人，非社区 %d 人（共 %d 人）",
+                          name, member, stranger, total)
+            if names:
+                rospy.loginfo("    社区人员: %s", names)
+        else:
+            # 没启用社区人员识别(vision_node 里 ENABLE_REID=False 或图库缺失)
+            rospy.loginfo(">>> %s人数 = %d（未启用社区人员识别, result: %s）",
+                          name, total, self.last_result)
+            names = ""
+
+        for street in self.street_tally:
+            if name not in street["points"]:
+                continue
+            street["data"][name] = (total, member, stranger)
+            if name != street["points"][-1]:
+                return
+            # 该街区最后一个识别点跑完 -> 汇总(只报人数, 不报人员姓名)
+            t = sum(v[0] for v in street["data"].values())
+            m = sum(v[1] for v in street["data"].values())
+            s = sum(v[2] for v in street["data"].values())
+            detail = " + ".join(
+                "%s %d人" % (p, street["data"][p][0])
+                for p in street["points"] if p in street["data"])
+            rospy.loginfo("=" * 56)
+            rospy.loginfo("在%s共识别到 %d 人（%s）", street["name"], t, detail)
+            if m + s > 0:
+                rospy.loginfo("在%s：识别到社区 %d 人，非社区 %d 人", street["name"], m, s)
+            rospy.loginfo("=" * 56)
+            return
+
     def do_vision_task(self, wp, task):
         """识别/车牌路点: 开启识别 -> 停留 -> 关闭 -> 打印结果。"""
         self.last_result = self.last_count = self.last_plate = None
+        self.last_member = self.last_stranger = self.last_names = None
         if self.vision_ok:
             try:
                 self.start_vision(True)
@@ -283,34 +375,9 @@ class AutoNavigator:
                 self.stop_vision()
             except rospy.ServiceException:
                 pass
-        if task == "count":
-            count = int(self.last_count) if self.last_count is not None else 0
-            task_point = self.current_task_point(wp) or {}
-            name = task_point.get("name", "")
-            rospy.loginfo(">>> %s人数 = %d (result: %s)",
-                          name or "识别", count, self.last_result)
 
-            if name in self.street1_counts:
-                self.street1_counts[name] = count
-                if name == "识别3":
-                    total = sum(self.street1_counts.values())
-                    rospy.loginfo(
-                        "在1街区共检测到 %d 个人"
-                        "（识别1人数 %d + 识别2人数 %d + 识别3人数 %d）",
-                        total,
-                        self.street1_counts["识别1"],
-                        self.street1_counts["识别2"],
-                        self.street1_counts["识别3"])
-            elif name in self.street2_counts:
-                self.street2_counts[name] = count
-                if name == "识别5":
-                    total = sum(self.street2_counts.values())
-                    rospy.loginfo(
-                        "在2街区共检测到 %d 个人"
-                        "（识别4人数 %d + 识别5人数 %d）",
-                        total,
-                        self.street2_counts["识别4"],
-                        self.street2_counts["识别5"])
+        if task == "count":
+            self.report_count(wp)
         else:  # plate
             rospy.loginfo(">>> 车牌 = %s (result: %s)", self.last_plate, self.last_result)
 
@@ -380,8 +447,8 @@ class AutoNavigator:
         self.stay_time = data.get("stay_time_at_bc", self.stay_time)
 
         init = data.get("initial_pose", {})
-        ix = float(init.get("x", 2.6))
-        iy = float(init.get("y", 2.4))
+        ix = float(init.get("x", 1.7))
+        iy = float(init.get("y", 1.7))
         iyaw = float(init.get("yaw", math.pi))
 
         rospy.loginfo("共 %d 个导航点 | stay_time=%.1fs", len(waypoints), self.stay_time)
