@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>person_reid</name>
+  <version>0.1.0</version>
+  <description>
+    社区人员识别: YOLOv8 检测人 -> OSNet 提取 512 维外观特征 -> 与参考图库比对余弦相似度,
+    判断画面里的人是否为本社区登记人员。纯 PyTorch 实现, 不需要 GPU。
+  </description>
+
+  <maintainer email="hh@todo.todo">hh</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>std_srvs</build_depend>
+
+  <build_export_depend>cv_bridge</build_export_depend>
+  <build_export_depend>rospy</build_export_depend>
+  <build_export_depend>sensor_msgs</build_export_depend>
+  <build_export_depend>std_msgs</build_export_depend>
+  <build_export_depend>std_srvs</build_export_depend>
+
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+
+  <export>
+  </export>
+</package>

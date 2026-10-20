@@ -1,0 +1,14 @@
+# Python 缓存
+__pycache__/
+*.py[cod]
+
+# 模型权重(体积大, 按需自行下载/放置)
+*.pth
+*.pt
+
+# 编译产物与临时文件
+*.log
+*.bag
+*.swp
+*.swo
+.DS_Store
