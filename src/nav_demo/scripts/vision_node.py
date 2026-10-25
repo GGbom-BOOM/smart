@@ -61,9 +61,9 @@ TASK_WAYPOINTS = [
     {"name": "traffic_light_1", "x": 0.8,   "y": 1.7,   "yaw": 3.1416,  "task": "traffic_light"},
     {"name": "count_1",         "x": -1.1, "y": 1.7,  "yaw": 4.7124,  "task": "count"},   # 识别1
     {"name": "count_2",         "x": -1.75,  "y": 1.07,  "yaw": 0.0,     "task": "count"},   # 识别2
-    {"name": "count_3",         "x": -1.0,  "y": 0.45,  "yaw": 1.5708,  "task": "count"},   # 识别3
-    {"name": "count_4",         "x": -1.0,  "y": 0.45,  "yaw": -1.5708, "task": "count"},   # 识别4
-    {"name": "count_5",         "x": -0.06, "y": -0.1, "yaw": 3.1416,  "task": "count"},   # 识别5
+    {"name": "count_3",         "x": -0.8,  "y": 0.45,  "yaw": 1.5708,  "task": "count"},   # 识别3
+    {"name": "count_4",         "x": -0.8,  "y": 0.45,  "yaw": -1.5708, "task": "count"},   # 识别4
+    {"name": "count_5",         "x": -0.06, "y": -0.2, "yaw": 3.1416,  "task": "count"},   # 识别5
     {"name": "traffic_light_2", "x": -0.06, "y": -0.03, "yaw": 4.7124,  "task": "traffic_light"},
     {"name": "plate_1",         "x": 1.1,   "y": -1.75, "yaw": 0.0,     "task": "plate"},   # 车牌1
     {"name": "plate_2",         "x": 1.1,   "y": -0.68, "yaw": 0.0,     "task": "plate"},   # 车牌2

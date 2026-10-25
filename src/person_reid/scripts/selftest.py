@@ -174,8 +174,10 @@ def main():
         for i, c in enumerate(bus_c[1:] + zid_c[1:]):
             cv2.imwrite(os.path.join(tmp, "neg", "n%d.jpg" % i), c)
 
-        eng.save_gallery(os.path.join(tmp, "g.npz"), eng.extract(people[:2]),
-                         ["甲", "乙"])
+        # people = [bus#0, bus#1, zid#0]; 图库只放 bus#0(甲) 和 zid#0(乙),
+        # 不能写 people[:2], 否则 bus#1 既是"乙"又出现在负样本里, 相似度必然 1.000。
+        eng.save_gallery(os.path.join(tmp, "g.npz"),
+                         eng.extract([people[0], people[2]]), ["甲", "乙"])
         n = eng.load_gallery(os.path.join(tmp, "g.npz"))
         check("建库/存盘/载入", n == 2, "%d 条特征" % n)
 
